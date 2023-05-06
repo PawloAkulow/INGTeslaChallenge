@@ -1,0 +1,32 @@
+package com.example;
+
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import com.example.atmservice.AtmServiceHandler;
+import com.example.onlinegame.OnlineGameCalculateHandler;
+import com.example.transactions.TransactionsReportHandler;
+
+public class INGTeslaChallenge {
+
+    public static void main(String[] args) {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+            ExecutorService executorService = Executors.newCachedThreadPool();
+            
+            server.createContext("/atmservice/calculateOrder", new AtmServiceHandler(executorService));
+
+            server.createContext("/transactions/report", new TransactionsReportHandler(executorService));
+
+            server.createContext("/onlinegame/calculate", new OnlineGameCalculateHandler(executorService));
+
+            server.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
