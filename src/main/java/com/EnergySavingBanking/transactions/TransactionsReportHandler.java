@@ -1,12 +1,9 @@
-package com.example.transactions;
+package com.EnergySavingBanking.transactions;
+import com.EnergySavingBanking.AbstractHandler;
 
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -14,14 +11,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
-public class TransactionsReportHandler implements HttpHandler {
-    private ExecutorService executorService;
+public class TransactionsReportHandler extends AbstractHandler {
     private AtomicInteger pendingTasks = new AtomicInteger(0);
 
     private static final String INVALID_DEBIT_ACCOUNT_MESSAGE = "Invalid debit account number.";
@@ -32,69 +27,35 @@ public class TransactionsReportHandler implements HttpHandler {
     private static final int CHUNK_SIZE = 10_000;
 
     public TransactionsReportHandler(ExecutorService executorService) {
-        this.executorService = executorService;
+        super(executorService);
     }
 
     @Override
-    public void handle(HttpExchange exchange) throws IOException {
-        executorService.submit(() -> {
-            try {
-                if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                    String requestBody;
-                    try (InputStream input = exchange.getRequestBody();
-                         Scanner scanner = new Scanner(input, StandardCharsets.UTF_8)) {
-                        requestBody = scanner.useDelimiter("\\A").next();
-                    }
-
-                    Map<String, AccountData> accountDataMap = new ConcurrentSkipListMap<>();
-                    try {
-                        parseTransactionsFromJson(requestBody, chunk -> {
-                            if (chunk.size() < CHUNK_SIZE) {
-                                processChunk(accountDataMap, chunk);
-                            } else {
-                                processChunkAsync(accountDataMap, chunk);
-                            }
-                        });
-                    } catch (IllegalArgumentException e) {
-                        String response = "Error: " + e.getMessage();
-                        byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
-                        exchange.getResponseHeaders().set("Content-Type", "text/plain");
-                        exchange.sendResponseHeaders(400, responseBytes.length);
-                        try (OutputStream output = exchange.getResponseBody()) {
-                            output.write(responseBytes);
-                            output.flush();
-                        }
-                        return;
-                    }
-
-                    // Wait for all tasks to complete
-                    while (pendingTasks.get() > 0) {
-                        Thread.sleep(10);
-                    }
-
-                    Collection<AccountData> accountData = accountDataMap.values();
-
-                    String jsonResponse = createJsonResponse(accountData);
-
-                    byte[] responseBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().set("Content-Type", "application/json");
-                    exchange.sendResponseHeaders(200, responseBytes.length);
-                    try (OutputStream output = exchange.getResponseBody()) {
-                        output.write(responseBytes);
-                        output.flush();
-                    }
-
+    protected void processRequestData(String requestBody, HttpExchange exchange) throws IOException, IllegalArgumentException, InterruptedException {
+        Map<String, AccountData> accountDataMap = new ConcurrentSkipListMap<>();
+        try {
+            parseTransactionsFromJson(requestBody, chunk -> {
+                if (chunk.size() < CHUNK_SIZE) {
+                    processChunk(accountDataMap, chunk);
                 } else {
-                    exchange.sendResponseHeaders(405, -1);
+                    processChunkAsync(accountDataMap, chunk);
                 }
-            } catch (IOException e) {
-                // Handle IOException here, e.g., log the error or send an error response
-                e.printStackTrace();
-            } catch (InterruptedException e) {
-                // Handle InterruptedException, e.g., log the error or send an error response
-                e.printStackTrace();
-            }
-        });
+            });
+        } catch (IllegalArgumentException e) {
+            sendErrorResponse(exchange, e.getMessage());
+            return;
+        }
+
+        // Wait for all tasks to complete
+        while (pendingTasks.get() > 0) {
+            Thread.sleep(10);
+        }
+
+        Collection<AccountData> accountData = accountDataMap.values();
+
+        String jsonResponse = createJsonResponse(accountData);
+
+        sendJsonResponse(exchange, jsonResponse);
     }
 
     private void parseTransactionsFromJson(String json, Consumer<List<Transaction>> chunkProcessor) throws IllegalArgumentException {

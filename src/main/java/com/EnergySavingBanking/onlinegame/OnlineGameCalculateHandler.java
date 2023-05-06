@@ -1,22 +1,17 @@
-package com.example.onlinegame;
+package com.EnergySavingBanking.onlinegame;
 
+import com.EnergySavingBanking.AbstractHandler;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 
-public class OnlineGameCalculateHandler implements HttpHandler {
-    private ExecutorService executorService;
+public class OnlineGameCalculateHandler extends AbstractHandler {
 
     public OnlineGameCalculateHandler(ExecutorService executorService) {
-        this.executorService = executorService;
+        super(executorService);
     }
 
     private static final String INVALID_PROPERTY_KEY_MESSAGE = "Invalid property key";
@@ -33,46 +28,24 @@ public class OnlineGameCalculateHandler implements HttpHandler {
     private static final int POINTS_MAX = Game.MAX_POINTS;
 
     @Override
-    public void handle(HttpExchange exchange) throws IOException {
+    protected void processRequestData(String requestBody, HttpExchange exchange) throws IOException, IllegalArgumentException {
         executorService.submit(() -> {
+            List<List<Integer>> orderedGroups;
             try {
-                if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                    String requestBody;
-                    try (InputStream input = exchange.getRequestBody();
-                            Scanner scanner = new Scanner(input, StandardCharsets.UTF_8)) {
-                        requestBody = scanner.useDelimiter("\\A").next();
-                    }
-
-                    Game game;
-                    try {
-                        game = parseGameFromJson(requestBody);
-                    } catch (IllegalArgumentException e) {
-                        String response = "Error: " + e.getMessage();
-                        byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
-                        exchange.getResponseHeaders().set("Content-Type", "text/plain");
-                        exchange.sendResponseHeaders(400, responseBytes.length);
-                        try (OutputStream output = exchange.getResponseBody()) {
-                            output.write(responseBytes);
-                            output.flush();
-                        }
-                        return;
-                    }
-
-                    List<List<Integer>> orderedGroups = game.calculateGroups();
-                    String jsonResponse = createJsonResponse(orderedGroups);
-
-                    byte[] responseBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().set("Content-Type", "application/json");
-                    exchange.sendResponseHeaders(200, responseBytes.length);
-                    try (OutputStream output = exchange.getResponseBody()) {
-                        output.write(responseBytes);
-                        output.flush();
-                    }
-                } else {
-                    exchange.sendResponseHeaders(405, -1);
+                Game game = parseGameFromJson(requestBody);
+                orderedGroups = game.calculateGroups();
+             } catch (IllegalArgumentException e) {
+                try {
+                    sendErrorResponse(exchange, e.getMessage());
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
                 }
+                return;
+            }
+            String jsonResponse = createJsonResponse(orderedGroups);
+            try {
+                sendJsonResponse(exchange, jsonResponse);
             } catch (IOException e) {
-                // Handle IOException here, e.g., log the error or send an error response
                 e.printStackTrace();
             }
         });

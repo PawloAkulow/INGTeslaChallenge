@@ -1,26 +1,16 @@
-package com.example.atmservice;
+package com.EnergySavingBanking.atmservice;
 
+import com.EnergySavingBanking.AbstractHandler;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.TreeMap;
 
-public class AtmServiceHandler implements HttpHandler {
-    private ExecutorService executorService;
+public class AtmServiceHandler extends AbstractHandler {
 
     public AtmServiceHandler(ExecutorService executorService) {
-        this.executorService = executorService;
+        super(executorService);
     }
 
     // Restrictions from schema
@@ -50,51 +40,20 @@ public class AtmServiceHandler implements HttpHandler {
     private static final List<String> REQUEST_TYPES = new ArrayList<>(priorityMapping.keySet());
 
     @Override
-public void handle(HttpExchange exchange) throws IOException {
-    executorService.submit(() -> {
+    protected void processRequestData(String requestBody, HttpExchange exchange) throws IOException, IllegalArgumentException, InterruptedException {
+        List<Integer> tasks;
         try {
-            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                String requestBody;
-                try (InputStream input = exchange.getRequestBody();
-                     Scanner scanner = new Scanner(input, StandardCharsets.UTF_8)) {
-                    requestBody = scanner.useDelimiter("\\A").next();
-                }
-
-                List<Integer> tasks;
-                try {
-                    tasks = parseTasksFromJson(requestBody);
-                } catch (IllegalArgumentException e) {
-                    String response = "Error: " + e.getMessage();
-                    byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().set("Content-Type", "text/plain");
-                    exchange.sendResponseHeaders(400, responseBytes.length);
-                    try (OutputStream output = exchange.getResponseBody()) {
-                        output.write(responseBytes);
-                        output.flush();
-                    }
-                    return;
-                }
-
-                String jsonResponse = createJsonResponse(calculateOrder(tasks));
-
-                byte[] responseBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, responseBytes.length);
-                try (OutputStream output = exchange.getResponseBody()) {
-                    output.write(responseBytes);
-                    output.flush();
-                }
-            } else {
-                exchange.sendResponseHeaders(405, -1);
-            }
-        } catch (IOException e) {
-            // Handle IOException here, e.g., log the error or send an error response
-            e.printStackTrace();
+            tasks = parseTasksFromJson(requestBody);
+        } catch (IllegalArgumentException e) {
+            sendErrorResponse(exchange, e.getMessage());
+            return;
         }
-    });
-}
 
-private List<Integer> parseTasksFromJson(String json) throws IllegalArgumentException {
+        String jsonResponse = createJsonResponse(calculateOrder(tasks));
+        sendJsonResponse(exchange, jsonResponse);
+    }
+
+    private List<Integer> parseTasksFromJson(String json) throws IllegalArgumentException {
     List<Integer> tasks = new ArrayList<>();
      String[] jsonObjects = json.substring(1, json.length() - 1).split("},");
     for (String jsonObject : jsonObjects) {
