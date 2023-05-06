@@ -8,7 +8,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
@@ -28,10 +27,10 @@ public class OnlineGameCalculateHandler implements HttpHandler {
 
     private static final int GROUP_COUNT_MIN = 1;
     private static final int GROUP_COUNT_MAX = 1000;
-    private static final int NUMBER_OF_PLAYERS_MIN = 1;
-    private static final int NUMBER_OF_PLAYERS_MAX = 1000;
-    private static final int POINTS_MIN = 1;
-    private static final int POINTS_MAX = 1000000;
+    private static final int NUMBER_OF_PLAYERS_MIN = Game.MIN_NUMBER_OF_PLAYERS;
+    private static final int NUMBER_OF_PLAYERS_MAX = Game.MAX_NUMBER_OF_PLAYERS;
+    private static final int POINTS_MIN = Game.MIN_POINTS;
+    private static final int POINTS_MAX = Game.MAX_POINTS;
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -59,10 +58,8 @@ public class OnlineGameCalculateHandler implements HttpHandler {
                         return;
                     }
 
-                    List<List<Clan>> orderedGroups = calculateGroups(game); // Implement your logic for calculating
-                                                                               // the order of the clans
-                    String jsonResponse = createJsonResponse(orderedGroups); // Implement your logic for creating JSON
-                                                                             // response
+                    List<List<Integer>> orderedGroups = game.calculateGroups();
+                    String jsonResponse = createJsonResponse(orderedGroups);
 
                     byte[] responseBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -83,7 +80,7 @@ public class OnlineGameCalculateHandler implements HttpHandler {
 
     private Game parseGameFromJson(String json) throws IllegalArgumentException {
         int groupCount = 0;
-        List<Clan> clans = new ArrayList<>();
+        List<Integer> encodedClans = new ArrayList<>();
 
         String[] jsonObjects = json.substring(1, json.length() - 1).split("},");
         for (String jsonObject : jsonObjects) {
@@ -93,7 +90,7 @@ public class OnlineGameCalculateHandler implements HttpHandler {
             boolean isGroupCount = false;
             for (String property : jsonProperties) {
                 String[] keyValue = property.split(":");
-                String key = keyValue[0].replaceAll("\"", "");
+                String key            = keyValue[0].replaceAll("\"", "");
                 String value = keyValue[1].replaceAll("\"", "");
                 switch (key) {
                     case "groupCount":
@@ -110,7 +107,7 @@ public class OnlineGameCalculateHandler implements HttpHandler {
                     case "numberOfPlayers":
                         try {
                             numberOfPlayers = Integer.parseInt(value);
-                            if (numberOfPlayers < NUMBER_OF_PLAYERS_MIN || numberOfPlayers > NUMBER_OF_PLAYERS_MAX || numberOfPlayers >groupCount) {
+                            if (numberOfPlayers < NUMBER_OF_PLAYERS_MIN || numberOfPlayers > NUMBER_OF_PLAYERS_MAX) {
                                 throw new IllegalArgumentException(INVALID_NUMBER_OF_PLAYERS_MESSAGE);
                             }
                         } catch (NumberFormatException e) {
@@ -132,72 +129,45 @@ public class OnlineGameCalculateHandler implements HttpHandler {
                 }
             }
             if (!isGroupCount) {
-                clans.add(new Clan(numberOfPlayers, points));
+                encodedClans.add(Game.encodeClan(numberOfPlayers, points));
             }
         }
-
-        return new Game(groupCount, clans);
+    
+        return new Game(groupCount, encodedClans);
     }
-
-    private List<List<Clan>> calculateGroups(Game players) {
-        int groupCount = players.getGroupCount();
-        List<Clan> clans = players.getClans();
-        clans.sort(Comparator
-                .comparingInt(Clan::getPoints).reversed()
-                .thenComparingInt(Clan::getNumberOfPlayers));
-
-        List<List<Clan>> orderedGroups = new ArrayList<>();
-        int currentGroupSize = 0;
-        List<Clan> currentGroup = new ArrayList<>();
-
-        for (Clan clan : clans) {
-            if (currentGroupSize + clan.getNumberOfPlayers() <= groupCount) {
-                currentGroupSize += clan.getNumberOfPlayers();
-                currentGroup.add(clan);
-            } else {
-                orderedGroups.add(currentGroup);
-                currentGroup = new ArrayList<>();
-                currentGroup.add(clan);
-                currentGroupSize = clan.getNumberOfPlayers();
-            }
-        }
-
-        if (!currentGroup.isEmpty()) {
-            orderedGroups.add(currentGroup);
-        }
-
-        return orderedGroups;
-    }
-
-    private String createJsonResponse(List<List<Clan>> orderedGroups) {
+    
+    private String createJsonResponse(List<List<Integer>> orderedGroups) {
         StringBuilder json = new StringBuilder();
         json.append("[\n");
-
-        for (List<Clan> group : orderedGroups) {
+    
+        for (List<Integer> group : orderedGroups) {
             json.append("  [\n");
-            for (Clan clan : group) {
+            for (Integer encodedClan : group) {
+                int numberOfPlayers = Game.decodeNumberOfPlayers(encodedClan);
+                int points = Game.decodePoints(encodedClan);
                 json.append("    {\n");
-                json.append("      \"numberOfPlayers\": ").append(clan.getNumberOfPlayers()).append(",\n");
-                json.append("      \"points\": ").append(clan.getPoints()).append("\n");
+                json.append("      \"numberOfPlayers\": ").append(numberOfPlayers).append(",\n");
+                json.append("      \"points\": ").append(points).append("\n");
                 json.append("    },\n");
             }
-
+    
             // Remove the last comma and newline
             if (json.length() > 4) {
                 json.setLength(json.length() - 2);
             }
-
+    
             json.append("\n  ],\n");
         }
-
+    
         // Remove the last comma and newline
         if (json.length() > 2) {
             json.setLength(json.length() - 2);
         }
-
+    
         json.append("\n]");
-
+    
         return json.toString();
     }
-
+    
 }
+    
