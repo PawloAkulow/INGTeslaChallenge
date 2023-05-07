@@ -1,4 +1,5 @@
 package com.EnergySavingBanking.transactions;
+
 import com.EnergySavingBanking.AbstractHandler;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -15,6 +16,10 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 public class TransactionsReportHandler extends AbstractHandler {
     private AtomicInteger pendingTasks = new AtomicInteger(0);
@@ -22,7 +27,6 @@ public class TransactionsReportHandler extends AbstractHandler {
     private static final String INVALID_DEBIT_ACCOUNT_MESSAGE = "Invalid debit account number.";
     private static final String INVALID_CREDIT_ACCOUNT_MESSAGE = "Invalid credit account number.";
     private static final String INVALID_AMOUNT_MESSAGE = "Invalid amount value.";
-    private static final String INVALID_PROPERTY_KEY_MESSAGE = "Invalid property key.";
     private static final int ACCOUNT_NUMBER_LENGTH = 26;
     private static final int CHUNK_SIZE = 10_000;
 
@@ -31,7 +35,8 @@ public class TransactionsReportHandler extends AbstractHandler {
     }
 
     @Override
-    protected void processRequestData(String requestBody, HttpExchange exchange) throws IOException, IllegalArgumentException, InterruptedException {
+    protected void processRequestData(String requestBody, HttpExchange exchange)
+            throws IOException, IllegalArgumentException, InterruptedException {
         Map<String, AccountData> accountDataMap = new ConcurrentSkipListMap<>();
         try {
             parseTransactionsFromJson(requestBody, chunk -> {
@@ -58,53 +63,34 @@ public class TransactionsReportHandler extends AbstractHandler {
         sendJsonResponse(exchange, jsonResponse);
     }
 
-    private void parseTransactionsFromJson(String json, Consumer<List<Transaction>> chunkProcessor) throws IllegalArgumentException {
+    private void parseTransactionsFromJson(String json, Consumer<List<Transaction>> chunkProcessor)
+            throws IllegalArgumentException {
         List<Transaction> transactions = new ArrayList<>();
-        String[] jsonObjects = json.substring(1, json.length() - 1).split("},");
+        Gson gson = new Gson();
 
-        for (int i = 0; i < jsonObjects.length; i++) {
-            String jsonObject = jsonObjects[i];
-            String debitAccount = "";
-            String creditAccount = "";
-            double amount = 0;
+        JsonArray jsonArray = gson.fromJson(json, JsonArray.class);
 
-            String[] jsonProperties = jsonObject.replaceAll("[\\s{}]", "").split(",");
-            for (String property : jsonProperties) {
-                String[] keyValue = property.split(":");
-                String key = keyValue[0].replaceAll("\"", "");
-                String value = keyValue[1].replaceAll("\"", "");
+        for (int i = 0; i < jsonArray.size(); i++) {
+            JsonObject jsonObject = jsonArray.get(i).getAsJsonObject();
+            String debitAccount = jsonObject.get("debitAccount").getAsString();
+            String creditAccount = jsonObject.get("creditAccount").getAsString();
+            double amount = jsonObject.get("amount").getAsDouble();
 
-                switch (key) {
-                    case "debitAccount":
-                        if (value.length() != ACCOUNT_NUMBER_LENGTH) {
-                            throw new IllegalArgumentException(INVALID_DEBIT_ACCOUNT_MESSAGE);
-                        }
-                        debitAccount = value;
-                        break;
-                    case "creditAccount":
-                        if (value.length() != ACCOUNT_NUMBER_LENGTH) {
-                            throw new IllegalArgumentException(INVALID_CREDIT_ACCOUNT_MESSAGE);
-                        }
-                        creditAccount = value;
-                        break;
-                    case "amount":
-                        try {
-                            amount = Double.parseDouble(value);
-                            if (amount <= 0) {
-                                throw new IllegalArgumentException(INVALID_AMOUNT_MESSAGE);
-                            }
-                        } catch (NumberFormatException e) {
-                            throw new IllegalArgumentException(INVALID_AMOUNT_MESSAGE);
-                        }
-                        break;
-                    default:
-                        throw new IllegalArgumentException(INVALID_PROPERTY_KEY_MESSAGE);
-                }
+            if (debitAccount.length() != ACCOUNT_NUMBER_LENGTH) {
+                throw new IllegalArgumentException(INVALID_DEBIT_ACCOUNT_MESSAGE);
+            }
+
+            if (creditAccount.length() != ACCOUNT_NUMBER_LENGTH) {
+                throw new IllegalArgumentException(INVALID_CREDIT_ACCOUNT_MESSAGE);
+            }
+
+            if (amount <= 0) {
+                throw new IllegalArgumentException(INVALID_AMOUNT_MESSAGE);
             }
 
             transactions.add(new Transaction(debitAccount, creditAccount, amount));
 
-            if (transactions.size() >= CHUNK_SIZE || i == jsonObjects.length - 1) {
+            if (transactions.size() >= CHUNK_SIZE || i == jsonArray.size() - 1) {
                 chunkProcessor.accept(transactions);
                 transactions = new ArrayList<>();
             }
@@ -127,14 +113,14 @@ public class TransactionsReportHandler extends AbstractHandler {
             String debitAccount = transaction.getDebitAccount();
             String creditAccount = transaction.getCreditAccount();
             double amount = transaction.getAmount();
-    
+
             // Update debit account
             AccountData debitAccountData = accountDataMap.computeIfAbsent(debitAccount, k -> new AccountData(k));
             synchronized (debitAccountData) {
                 debitAccountData.incrementDebitCount();
                 debitAccountData.subtractFromBalance(amount);
             }
-    
+
             // Update credit account
             AccountData creditAccountData = accountDataMap.computeIfAbsent(creditAccount, k -> new AccountData(k));
             synchronized (creditAccountData) {
@@ -143,37 +129,26 @@ public class TransactionsReportHandler extends AbstractHandler {
             }
         }
     }
-    
 
     private static String createJsonResponse(Collection<AccountData> accountDataCollection) {
-
         // Create a DecimalFormat with custom DecimalFormatSymbols
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
         symbols.setDecimalSeparator('.');
         DecimalFormat decimalFormat = new DecimalFormat("0.00", symbols);
 
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        JsonArray jsonArray = new JsonArray();
 
-        StringBuilder jsonResponseBuilder = new StringBuilder();
-        jsonResponseBuilder.append("[\n");
-    
-        boolean isFirst = true;
         for (AccountData accountData : accountDataCollection) {
-            if (!isFirst) {
-                jsonResponseBuilder.append(",\n");
-            } else {
-                isFirst = false;
-            }
-    
-            jsonResponseBuilder.append("  {\n");
-            jsonResponseBuilder.append("    \"account\": \"").append(accountData.getAccountNumber()).append("\",\n");
-            jsonResponseBuilder.append("    \"debitCount\": ").append(accountData.getDebitCount()).append(",\n");
-            jsonResponseBuilder.append("    \"creditCount\": ").append(accountData.getCreditCount()).append(",\n");
-            jsonResponseBuilder.append("    \"balance\": ").append(decimalFormat.format(accountData.getBalance())).append("\n");
-            jsonResponseBuilder.append("  }");
-        }
-    
-        jsonResponseBuilder.append("\n]");
-        return jsonResponseBuilder.toString();
-    }    
-}
+            JsonObject accountDataJson = new JsonObject();
+            accountDataJson.addProperty("account", accountData.getAccountNumber());
+            accountDataJson.addProperty("debitCount", accountData.getDebitCount());
+            accountDataJson.addProperty("creditCount", accountData.getCreditCount());
+            accountDataJson.addProperty("balance", decimalFormat.format(accountData.getBalance()));
 
+            jsonArray.add(accountDataJson);
+        }
+
+        return gson.toJson(jsonArray);
+    }
+}

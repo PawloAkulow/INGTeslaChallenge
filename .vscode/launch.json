@@ -12,9 +12,9 @@
         },
         {
             "type": "java",
-            "name": "MyWebappApplication",
+            "name": "INGTeslaChallenge",
             "request": "launch",
-            "mainClass": "com.example.MyWebappApplication",
+            "mainClass": "com.EnergySavingBanking.INGTeslaChallenge",
             "projectName": "my-webapp"
         }
     ]

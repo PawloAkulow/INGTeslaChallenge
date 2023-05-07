@@ -1,8 +1,8 @@
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/transactions/Transaction.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/onlinegame/Clan.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/onlinegame/Game.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/transactions/TransactionsReportHandler.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/onlinegame/OnlineGameCalculateHandler.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/atmservice/AtmServiceHandler.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/MyWebappApplication.java
-/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/example/transactions/AccountData.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/atmservice/AtmServiceHandler.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/AbstractHandler.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/transactions/Transaction.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/INGTeslaChallenge.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/transactions/AccountData.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/onlinegame/Game.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/onlinegame/OnlineGameCalculateHandler.java
+/Users/pawloakulow/ING_Tesla3/my-webapp/my-webapp/src/main/java/com/EnergySavingBanking/transactions/TransactionsReportHandler.java

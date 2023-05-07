@@ -1,6 +1,11 @@
 package com.EnergySavingBanking.onlinegame;
 
 import com.EnergySavingBanking.AbstractHandler;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
@@ -34,7 +39,7 @@ public class OnlineGameCalculateHandler extends AbstractHandler {
             try {
                 Game game = parseGameFromJson(requestBody);
                 orderedGroups = game.calculateGroups();
-             } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException e) {
                 try {
                     sendErrorResponse(exchange, e.getMessage());
                 } catch (IOException ioException) {
@@ -52,95 +57,82 @@ public class OnlineGameCalculateHandler extends AbstractHandler {
     }
 
     private Game parseGameFromJson(String json) throws IllegalArgumentException {
-        int groupCount = 0;
+        int groupCount;
         List<Integer> encodedClans = new ArrayList<>();
 
-        String[] jsonObjects = json.substring(1, json.length() - 1).split("},");
-        for (String jsonObject : jsonObjects) {
-            String[] jsonProperties = jsonObject.replaceAll("[\\s{}]", "").split(",");
-            int numberOfPlayers = 0;
-            int points = 0;
-            boolean isGroupCount = false;
-            for (String property : jsonProperties) {
-                String[] keyValue = property.split(":");
-                String key            = keyValue[0].replaceAll("\"", "");
-                String value = keyValue[1].replaceAll("\"", "");
-                switch (key) {
-                    case "groupCount":
-                        try {
-                            groupCount = Integer.parseInt(value);
-                            if (groupCount < GROUP_COUNT_MIN || groupCount > GROUP_COUNT_MAX) {
-                                throw new IllegalArgumentException(INVALID_GROUP_COUNT_MESSAGE);
-                            }
-                        } catch (NumberFormatException e) {
-                            throw new IllegalArgumentException(NON_INTEGER_VALUE_MESSAGE + " groupCount");
-                        }
-                        isGroupCount = true;
-                        break;
-                    case "numberOfPlayers":
-                        try {
-                            numberOfPlayers = Integer.parseInt(value);
-                            if (numberOfPlayers < NUMBER_OF_PLAYERS_MIN || numberOfPlayers > NUMBER_OF_PLAYERS_MAX) {
-                                throw new IllegalArgumentException(INVALID_NUMBER_OF_PLAYERS_MESSAGE);
-                            }
-                        } catch (NumberFormatException e) {
-                            throw new IllegalArgumentException(NON_INTEGER_VALUE_MESSAGE + " numberOfPlayers");
-                        }
-                        break;
-                    case "points":
-                        try {
-                            points = Integer.parseInt(value);
-                            if (points < POINTS_MIN || points > POINTS_MAX) {
-                                throw new IllegalArgumentException(INVALID_POINTS_MESSAGE);
-                            }
-                        } catch (NumberFormatException e) {
-                            throw new IllegalArgumentException(NON_INTEGER_VALUE_MESSAGE + " points");
-                        }
-                        break;
-                    default:
-                        throw new IllegalArgumentException(INVALID_PROPERTY_KEY_MESSAGE);
+        JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
+
+        if (jsonObject.has("groupCount")) {
+            try {
+                groupCount = jsonObject.get("groupCount").getAsInt();
+                if (groupCount < GROUP_COUNT_MIN || groupCount > GROUP_COUNT_MAX) {
+                    throw new IllegalArgumentException(INVALID_GROUP_COUNT_MESSAGE);
                 }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(NON_INTEGER_VALUE_MESSAGE + " groupCount");
             }
-            if (!isGroupCount) {
+        } else {
+            throw new IllegalArgumentException(INVALID_PROPERTY_KEY_MESSAGE);
+        }
+
+        if (jsonObject.has("clans")) {
+            JsonArray clansArray = jsonObject.getAsJsonArray("clans");
+            for (int i = 0; i < clansArray.size(); i++) {
+                JsonObject clanObject = clansArray.get(i).getAsJsonObject();
+                int numberOfPlayers;
+                int points;
+
+                if (clanObject.has("numberOfPlayers")) {
+                    try {
+                        numberOfPlayers = clanObject.get("numberOfPlayers").getAsInt();
+                        if (numberOfPlayers < NUMBER_OF_PLAYERS_MIN || numberOfPlayers > NUMBER_OF_PLAYERS_MAX) {
+                            throw new IllegalArgumentException(INVALID_NUMBER_OF_PLAYERS_MESSAGE);
+                        }
+                    } catch (NumberFormatException e) {
+                        throw new IllegalArgumentException(NON_INTEGER_VALUE_MESSAGE + " numberOfPlayers");
+                    }
+                } else {
+                    throw new IllegalArgumentException(INVALID_PROPERTY_KEY_MESSAGE);
+                }
+                if (clanObject.has("points")) {
+                    try {
+                        points = clanObject.get("points").getAsInt();
+                        if (points < POINTS_MIN || points > POINTS_MAX) {
+                            throw new IllegalArgumentException(INVALID_POINTS_MESSAGE);
+                        }
+                    } catch (NumberFormatException e) {
+                        throw new IllegalArgumentException(NON_INTEGER_VALUE_MESSAGE + " points");
+                    }
+                } else {
+                    throw new IllegalArgumentException(INVALID_PROPERTY_KEY_MESSAGE);
+                }
+    
                 encodedClans.add(Game.encodeClan(numberOfPlayers, points));
             }
+        } else {
+            throw new IllegalArgumentException(INVALID_PROPERTY_KEY_MESSAGE);
         }
     
         return new Game(groupCount, encodedClans);
     }
     
     private String createJsonResponse(List<List<Integer>> orderedGroups) {
-        StringBuilder json = new StringBuilder();
-        json.append("[\n");
+        Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+        JsonArray resultArray = new JsonArray();
     
         for (List<Integer> group : orderedGroups) {
-            json.append("  [\n");
+            JsonArray groupArray = new JsonArray();
             for (Integer encodedClan : group) {
                 int numberOfPlayers = Game.decodeNumberOfPlayers(encodedClan);
                 int points = Game.decodePoints(encodedClan);
-                json.append("    {\n");
-                json.append("      \"numberOfPlayers\": ").append(numberOfPlayers).append(",\n");
-                json.append("      \"points\": ").append(points).append("\n");
-                json.append("    },\n");
+                JsonObject clanObject = new JsonObject();
+                clanObject.addProperty("numberOfPlayers", numberOfPlayers);
+                clanObject.addProperty("points", points);
+                groupArray.add(clanObject);
             }
-    
-            // Remove the last comma and newline
-            if (json.length() > 4) {
-                json.setLength(json.length() - 2);
-            }
-    
-            json.append("\n  ],\n");
+            resultArray.add(groupArray);
         }
     
-        // Remove the last comma and newline
-        if (json.length() > 2) {
-            json.setLength(json.length() - 2);
-        }
-    
-        json.append("\n]");
-    
-        return json.toString();
+        return gson.toJson(resultArray);
     }
-    
-}
-    
+}    

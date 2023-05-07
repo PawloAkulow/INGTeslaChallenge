@@ -43,26 +43,37 @@ public class Game {
 
     public List<List<Integer>> calculateGroups() {
         encodedClans.sort(Comparator.reverseOrder());
+        int firstNonFilledGroup = 0;
 
         List<List<Integer>> orderedGroups = new ArrayList<>();
-        int currentGroupSize = 0;
-        List<Integer> currentGroup = new ArrayList<>();
+        List<Integer> remainingSpaces = new ArrayList<>();
 
         for (Integer encodedClan : encodedClans) {
             int numberOfPlayers = decodeNumberOfPlayers(encodedClan);
-            if (currentGroupSize + numberOfPlayers <= groupCount) {
-                currentGroupSize += numberOfPlayers;
-                currentGroup.add(encodedClan);
-            } else {
-                orderedGroups.add(currentGroup);
-                currentGroup = new ArrayList<>();
-                currentGroup.add(encodedClan);
-                currentGroupSize = numberOfPlayers;
-            }
-        }
+            int bestGroupIndex = -1;
+            int bestRemainingSpace = groupCount + 1;
 
-        if (!currentGroup.isEmpty()) {
-            orderedGroups.add(currentGroup);
+            for (int i = firstNonFilledGroup; i < orderedGroups.size(); i++) {
+                int remainingSpace = remainingSpaces.get(i) - numberOfPlayers;
+                if (remainingSpace >= 0) {
+                    bestRemainingSpace = remainingSpace;
+                    bestGroupIndex = i;
+                    break;
+                }
+            }
+
+            if (bestGroupIndex != -1) {
+                orderedGroups.get(bestGroupIndex).add(encodedClan);
+                remainingSpaces.set(bestGroupIndex, bestRemainingSpace);
+                if (bestRemainingSpace == 0) {
+                    firstNonFilledGroup = bestGroupIndex + 1;
+                }
+            } else {
+                List<Integer> newGroup = new ArrayList<>();
+                newGroup.add(encodedClan);
+                orderedGroups.add(newGroup);
+                remainingSpaces.add(groupCount - numberOfPlayers);
+            }
         }
 
         return orderedGroups;
