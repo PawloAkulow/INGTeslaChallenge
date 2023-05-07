@@ -13,6 +13,13 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * All ATM data encoded into one Integer with bitwise operations 
+ * due to memory and CPU time optimalization
+ * Usage of integers allows to use CPU cache more efficient
+ * bitwise operations are quickier as well
+ * No concurrency used because it wouldn't improve sorting  
+ */
 public class AtmServiceHandler extends AbstractHandler {
 
     public AtmServiceHandler(ExecutorService executorService) {

@@ -10,6 +10,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * AbstractHandler is an abstract class that provides common functionalities
+ * for handling HTTP requests in a web application. It implements the
+ * {@link HttpHandler} interface and provides methods for handling POST
+ * requests, sending error and JSON responses, and processing request data.
+ * <p>
+ * Subclasses of AbstractHandler should override the
+ * {@link #processRequestData(String, HttpExchange)} method to implement their
+ * own custom request processing logic.
+ */
 public abstract class AbstractHandler implements HttpHandler {
 
     protected ExecutorService executorService;

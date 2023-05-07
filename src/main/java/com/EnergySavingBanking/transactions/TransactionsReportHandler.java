@@ -21,6 +21,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+/**
+ * Concurrency used for transaction calculation
+ * Minimum chunk size for concurrent calculation set to 10k. <10k no concurrency used
+ * During JSON read-in when chunk is full calculation starts immediatly.
+ * To exclude data races Atomic types are used. So float balance represented as AtomicLong
+ */
 public class TransactionsReportHandler extends AbstractHandler {
     private AtomicInteger pendingTasks = new AtomicInteger(0);
 

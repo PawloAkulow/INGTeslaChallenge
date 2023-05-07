@@ -12,7 +12,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-
+/**
+ * No concurrency used because of requirement to have sorted list of clans
+ * All clans are coded into one single integer to optimize memory, CPU time and CPU cache 
+ * Bin packing algorithm variation was used to fill up the group.
+ * Big O complexity is depeneded on data set from O(n^2) to O(n)
+ */
 public class OnlineGameCalculateHandler extends AbstractHandler {
 
     public OnlineGameCalculateHandler(ExecutorService executorService) {
