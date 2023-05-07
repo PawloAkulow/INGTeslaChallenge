@@ -49,7 +49,17 @@ jobs:
       with:
         java-version: '17'
         distribution: 'adopt'
-        
+
+    - name: Install Maven 3.6.3
+      run: |
+        apt-get update
+        apt-get install -y wget
+        wget https://archive.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+        tar -xzf apache-maven-3.6.3-bin.tar.gz
+        rm apache-maven-3.6.3-bin.tar.gz
+        echo "M2_HOME=$GITHUB_WORKSPACE/apache-maven-3.6.3" >> $GITHUB_ENV
+        echo "$GITHUB_WORKSPACE/apache-maven-3.6.3/bin" >> $GITHUB_PATH    
+    
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
