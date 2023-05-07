@@ -14,6 +14,10 @@ public abstract class AbstractHandler implements HttpHandler {
 
     protected ExecutorService executorService;
 
+    private static final String REQUEST_PROCESSING_INTERRUPTED_MESSAGE = "Request processing interrupted";
+    private static final String ERROR_HEADER_MESSAGE = "Error: ";
+
+
     public AbstractHandler(ExecutorService executorService) {
         this.executorService = executorService;
     }
@@ -26,7 +30,7 @@ public abstract class AbstractHandler implements HttpHandler {
             } catch (InterruptedException e) {
                 // Handle InterruptedException, e.g., log the error or send an error response
                 e.printStackTrace();
-                sendErrorResponse(exchange, "Request processing interrupted");
+                sendErrorResponse(exchange, REQUEST_PROCESSING_INTERRUPTED_MESSAGE);
             }
         } else {
             exchange.sendResponseHeaders(405, -1);
@@ -50,7 +54,7 @@ public abstract class AbstractHandler implements HttpHandler {
     protected abstract void processRequestData(String requestBody, HttpExchange exchange) throws IOException, IllegalArgumentException,InterruptedException;
 
     protected void sendErrorResponse(HttpExchange exchange, String errorMessage) throws IOException {
-        String response = "Error: " + errorMessage;
+        String response = ERROR_HEADER_MESSAGE + errorMessage;
         byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "text/plain");
         exchange.sendResponseHeaders(400, responseBytes.length);
