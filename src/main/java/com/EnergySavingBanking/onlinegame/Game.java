@@ -53,8 +53,16 @@ public class Game {
             int bestGroupIndex = -1;
             int bestRemainingSpace = groupCount + 1;
 
+            boolean fullGroupsSequence = true;
             for (int i = firstNonFilledGroup; i < orderedGroups.size(); i++) {
-                int remainingSpace = remainingSpaces.get(i) - numberOfPlayers;
+                int remainingSpace = remainingSpaces.get(i);
+                if (remainingSpace != 0) {
+                    fullGroupsSequence = false;
+                }
+                if (fullGroupsSequence) {
+                    firstNonFilledGroup = i; 
+                }
+                remainingSpace -= numberOfPlayers;
                 if (remainingSpace >= 0) {
                     bestRemainingSpace = remainingSpace;
                     bestGroupIndex = i;
@@ -65,9 +73,6 @@ public class Game {
             if (bestGroupIndex != -1) {
                 orderedGroups.get(bestGroupIndex).add(encodedClan);
                 remainingSpaces.set(bestGroupIndex, bestRemainingSpace);
-                if (bestRemainingSpace == 0) {
-                    firstNonFilledGroup = bestGroupIndex + 1;
-                }
             } else {
                 List<Integer> newGroup = new ArrayList<>();
                 newGroup.add(encodedClan);

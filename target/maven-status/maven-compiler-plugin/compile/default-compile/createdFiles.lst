@@ -1,8 +1,0 @@
-com/EnergySavingBanking/AbstractHandler.class
-com/EnergySavingBanking/onlinegame/Game.class
-com/EnergySavingBanking/transactions/AccountData.class
-com/EnergySavingBanking/transactions/Transaction.class
-com/EnergySavingBanking/transactions/TransactionsReportHandler.class
-com/EnergySavingBanking/INGTeslaChallenge.class
-com/EnergySavingBanking/atmservice/AtmServiceHandler.class
-com/EnergySavingBanking/onlinegame/OnlineGameCalculateHandler.class
