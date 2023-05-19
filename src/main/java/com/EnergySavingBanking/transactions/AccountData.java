@@ -1,5 +1,7 @@
 package com.EnergySavingBanking.transactions;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -50,7 +52,7 @@ public class AccountData {
         return creditCount.get();
     }
 
-    public double getBalance() {
-        return balance.get() / PRECISION_DIVIDER;
+    public BigDecimal getBalance() {
+        return new BigDecimal(balance.get() / PRECISION_DIVIDER).setScale(DECIMAL_DIGITS,RoundingMode.HALF_EVEN);
     }
 }

@@ -5,12 +5,9 @@ import com.EnergySavingBanking.AbstractHandler;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
@@ -20,6 +17,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 /**
  * Concurrency used for transaction calculation
@@ -137,10 +135,6 @@ public class TransactionsReportHandler extends AbstractHandler {
     }
 
     private static String createJsonResponse(Collection<AccountData> accountDataCollection) {
-        // Create a DecimalFormat with custom DecimalFormatSymbols
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
-        symbols.setDecimalSeparator('.');
-        DecimalFormat decimalFormat = new DecimalFormat("0.00", symbols);
 
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonArray jsonArray = new JsonArray();
@@ -150,8 +144,12 @@ public class TransactionsReportHandler extends AbstractHandler {
             accountDataJson.addProperty("account", accountData.getAccountNumber());
             accountDataJson.addProperty("debitCount", accountData.getDebitCount());
             accountDataJson.addProperty("creditCount", accountData.getCreditCount());
-            accountDataJson.addProperty("balance", decimalFormat.format(accountData.getBalance()));
+            
+            // add the balance as a JsonPrimitive of type number
+            accountDataJson.add("balance", new JsonPrimitive(accountData.getBalance()));
 
+           // accountDataJson.addProperty("balance", accountData.getBalance().doubleValue());
+            
             jsonArray.add(accountDataJson);
         }
 

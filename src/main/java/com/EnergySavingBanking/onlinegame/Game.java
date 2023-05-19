@@ -5,10 +5,12 @@ import java.util.Comparator;
 import java.util.List;
 
 public class Game {
-    public static final int POINTS_SHIFT = 20;
+    // we need 10 bits to store up to 1000 Players in lower bits
+    public static final int POINTS_SHIFT = 10;
     public static final int MIN_NUMBER_OF_PLAYERS = 1;
     public static final int MAX_NUMBER_OF_PLAYERS = 1000;
-    public static final int MAX_POINTS = 100_000;
+    // it's 21 upper bits
+    public static final int MAX_POINTS = 1_000_000;
     public static final int MIN_POINTS = 1;
 
     private int groupCount;

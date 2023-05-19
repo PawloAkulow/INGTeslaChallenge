@@ -17,7 +17,7 @@ public class INGTeslaChallenge {
             HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
             ExecutorService executorService = Executors.newCachedThreadPool();
             
-            server.createContext("/atmservice/calculateOrder", new AtmServiceHandler(executorService));
+            server.createContext("/atms/calculateOrder", new AtmServiceHandler(executorService));
 
             server.createContext("/transactions/report", new TransactionsReportHandler(executorService));
 
