@@ -3,23 +3,22 @@ package com.EnergySavingBanking.transactions;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class AccountData {
     private String accountNumber;
     private AtomicInteger debitCount;
     private AtomicInteger creditCount;
-    private AtomicLong balance;
+    private AtomicReference<BigDecimal> balance;
 
-    private static final int DECIMAL_DIGITS = 2;
-    private static final long PRECISION_MULTIPLIER = (long) Math.pow(10, DECIMAL_DIGITS);
-    private static final double PRECISION_DIVIDER = Math.pow(10, DECIMAL_DIGITS);
+    private static final int SCALE = 2;
+    private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_EVEN;
 
     public AccountData(String accountNumber) {
         this.accountNumber = accountNumber;
         this.debitCount = new AtomicInteger(0);
         this.creditCount = new AtomicInteger(0);
-        this.balance = new AtomicLong(0);
+        this.balance = new AtomicReference<>(setScaledValue(BigDecimal.ZERO));
     }
 
     public String getAccountNumber() {
@@ -34,14 +33,12 @@ public class AccountData {
         creditCount.incrementAndGet();
     }
 
-    public void addToBalance(double amount) {
-        long amountAsLong = (long) (amount * PRECISION_MULTIPLIER);
-        balance.addAndGet(amountAsLong);
+    public void addToBalance(BigDecimal amount) {
+        balance.updateAndGet(b -> setScaledValue(b.add(amount)));
     }
 
-    public void subtractFromBalance(double amount) {
-        long amountAsLong = (long) (amount * PRECISION_MULTIPLIER);
-        balance.addAndGet(-amountAsLong);
+    public void subtractFromBalance(BigDecimal amount) {
+        balance.updateAndGet(b -> setScaledValue(b.subtract(amount)));
     }
 
     public int getDebitCount() {
@@ -53,6 +50,10 @@ public class AccountData {
     }
 
     public BigDecimal getBalance() {
-        return new BigDecimal(balance.get() / PRECISION_DIVIDER).setScale(DECIMAL_DIGITS,RoundingMode.HALF_EVEN);
+        return balance.get();
+    }
+
+    private BigDecimal setScaledValue(BigDecimal value) {
+        return value.setScale(SCALE, ROUNDING_MODE);
     }
 }

@@ -1,14 +1,20 @@
 package com.EnergySavingBanking.transactions;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 public class Transaction {
     private String debitAccount;
     private String creditAccount;
-    private double amount;
+    private BigDecimal amount;
 
-    public Transaction(String debitAccount, String creditAccount, double amount) {
+    private static final int SCALE = 2;
+    private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_EVEN;
+
+    public Transaction(String debitAccount, String creditAccount, BigDecimal amount) {
         this.debitAccount = debitAccount;
         this.creditAccount = creditAccount;
-        this.amount = amount;
+        this.amount = setScaledValue(amount);
     }
 
     public String getDebitAccount() {
@@ -19,7 +25,11 @@ public class Transaction {
         return creditAccount;
     }
 
-    public double getAmount() {
+    public BigDecimal getAmount() {
         return amount;
+    }
+
+    private BigDecimal setScaledValue(BigDecimal value) {
+        return value.setScale(SCALE, ROUNDING_MODE);
     }
 }

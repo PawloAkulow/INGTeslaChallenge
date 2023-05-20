@@ -1,38 +1,29 @@
 package com.EnergySavingBanking.transactions;
 
 import com.EnergySavingBanking.AbstractHandler;
-
-import com.sun.net.httpserver.HttpExchange;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.sun.net.httpserver.HttpExchange;
 
-/**
- * Concurrency used for transaction calculation
- * Minimum chunk size for concurrent calculation set to 10k. <10k no concurrency used
- * During JSON read-in when chunk is full calculation starts immediatly.
- * To exclude data races Atomic types are used. So float balance represented as AtomicLong
- */
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Consumer;
+
 public class TransactionsReportHandler extends AbstractHandler {
-    private AtomicInteger pendingTasks = new AtomicInteger(0);
-
     private static final String INVALID_DEBIT_ACCOUNT_MESSAGE = "Invalid debit account number.";
     private static final String INVALID_CREDIT_ACCOUNT_MESSAGE = "Invalid credit account number.";
     private static final String INVALID_AMOUNT_MESSAGE = "Invalid amount value.";
     private static final int ACCOUNT_NUMBER_LENGTH = 26;
     private static final int CHUNK_SIZE = 10_000;
+
+    private List<CompletableFuture<Void>> futures = new ArrayList<>();
 
     public TransactionsReportHandler(ExecutorService executorService) {
         super(executorService);
@@ -41,7 +32,7 @@ public class TransactionsReportHandler extends AbstractHandler {
     @Override
     protected void processRequestData(String requestBody, HttpExchange exchange)
             throws IOException, IllegalArgumentException, InterruptedException {
-        Map<String, AccountData> accountDataMap = new ConcurrentSkipListMap<>();
+        Map<String, AccountData> accountDataMap = new ConcurrentSkipListMap<>(); // Change this line
         try {
             parseTransactionsFromJson(requestBody, chunk -> {
                 if (chunk.size() < CHUNK_SIZE) {
@@ -56,9 +47,7 @@ public class TransactionsReportHandler extends AbstractHandler {
         }
 
         // Wait for all tasks to complete
-        while (pendingTasks.get() > 0) {
-            Thread.sleep(10);
-        }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         Collection<AccountData> accountData = accountDataMap.values();
 
@@ -78,7 +67,7 @@ public class TransactionsReportHandler extends AbstractHandler {
             JsonObject jsonObject = jsonArray.get(i).getAsJsonObject();
             String debitAccount = jsonObject.get("debitAccount").getAsString();
             String creditAccount = jsonObject.get("creditAccount").getAsString();
-            double amount = jsonObject.get("amount").getAsDouble();
+            BigDecimal amount = jsonObject.get("amount").getAsBigDecimal();
 
             if (debitAccount.length() != ACCOUNT_NUMBER_LENGTH) {
                 throw new IllegalArgumentException(INVALID_DEBIT_ACCOUNT_MESSAGE);
@@ -88,7 +77,7 @@ public class TransactionsReportHandler extends AbstractHandler {
                 throw new IllegalArgumentException(INVALID_CREDIT_ACCOUNT_MESSAGE);
             }
 
-            if (amount <= 0) {
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException(INVALID_AMOUNT_MESSAGE);
             }
 
@@ -102,21 +91,16 @@ public class TransactionsReportHandler extends AbstractHandler {
     }
 
     private void processChunkAsync(Map<String, AccountData> accountDataMap, List<Transaction> chunk) {
-        pendingTasks.incrementAndGet();
-        executorService.submit(() -> {
-            try {
-                processChunk(accountDataMap, chunk);
-            } finally {
-                pendingTasks.decrementAndGet();
-            }
-        });
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> processChunk(accountDataMap, chunk),
+                executorService);
+        futures.add(future);
     }
 
     private void processChunk(Map<String, AccountData> accountDataMap, List<Transaction> chunk) {
         for (Transaction transaction : chunk) {
             String debitAccount = transaction.getDebitAccount();
             String creditAccount = transaction.getCreditAccount();
-            double amount = transaction.getAmount();
+            BigDecimal amount = transaction.getAmount();
 
             // Update debit account
             AccountData debitAccountData = accountDataMap.computeIfAbsent(debitAccount, k -> new AccountData(k));
@@ -135,7 +119,6 @@ public class TransactionsReportHandler extends AbstractHandler {
     }
 
     private static String createJsonResponse(Collection<AccountData> accountDataCollection) {
-
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonArray jsonArray = new JsonArray();
 
@@ -144,15 +127,14 @@ public class TransactionsReportHandler extends AbstractHandler {
             accountDataJson.addProperty("account", accountData.getAccountNumber());
             accountDataJson.addProperty("debitCount", accountData.getDebitCount());
             accountDataJson.addProperty("creditCount", accountData.getCreditCount());
-            
+
             // add the balance as a JsonPrimitive of type number
             accountDataJson.add("balance", new JsonPrimitive(accountData.getBalance()));
 
-           // accountDataJson.addProperty("balance", accountData.getBalance().doubleValue());
-            
             jsonArray.add(accountDataJson);
         }
 
         return gson.toJson(jsonArray);
     }
+
 }
